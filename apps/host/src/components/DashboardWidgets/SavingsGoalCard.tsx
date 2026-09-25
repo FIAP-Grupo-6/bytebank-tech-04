@@ -3,7 +3,7 @@
 import { Check, Target, Settings } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@bytebank/ui'
 import { cn } from '@bytebank/ui'
-import type { SavingsGoalConfig } from './types'
+import { savingsProgress, type SavingsGoalConfig } from '@bytebank/domain'
 import { formatBRL } from '@/lib/format'
 
 interface ProgressBarProps {
@@ -29,7 +29,7 @@ interface SavingsGoalCardProps {
 }
 
 export function SavingsGoalCard({ balance, config, onEdit }: SavingsGoalCardProps) {
-  const pct = config.targetAmount > 0 ? (balance / config.targetAmount) * 100 : 0
+  const pct = savingsProgress(balance, config.targetAmount)
   const color = pct >= 100 ? 'hsl(var(--success))' : 'hsl(var(--primary))'
   const reached = pct >= 100
 

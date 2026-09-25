@@ -6,7 +6,19 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 import { cn } from '../cn'
-import { Calendar } from './Calendar'
+
+/**
+ * Lazy loading: o calendário (react-day-picker) só é necessário quando o
+ * popover abre. Ele sai do bundle inicial de quem usa o DatePicker e é
+ * pré-carregado no hover/foco do gatilho — ao clicar, já está pronto.
+ */
+const loadCalendar = () => import('./Calendar').then((m) => ({ default: m.Calendar }))
+const LazyCalendar = React.lazy(loadCalendar)
+const preloadCalendar = () => void loadCalendar()
+
+function CalendarFallback() {
+  return <div className="w-[280px] h-[300px] p-3" aria-busy="true" aria-label="Carregando calendário" />
+}
 
 export interface DatePickerProps {
   label?: string
@@ -53,6 +65,9 @@ export function DatePicker({
             id={id}
             type="button"
             disabled={disabled}
+            onMouseEnter={preloadCalendar}
+            onFocus={preloadCalendar}
+            onTouchStart={preloadCalendar}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : undefined}
             className={cn(
@@ -81,7 +96,9 @@ export function DatePicker({
               'data-[side=bottom]:slide-in-from-top-2'
             )}
           >
-            <Calendar mode="single" selected={selected} onSelect={handleSelect} initialFocus />
+            <React.Suspense fallback={<CalendarFallback />}>
+              <LazyCalendar mode="single" selected={selected} onSelect={handleSelect} initialFocus />
+            </React.Suspense>
           </PopoverPrimitive.Content>
         </PopoverPrimitive.Portal>
       </PopoverPrimitive.Root>

@@ -9,6 +9,11 @@ export function isDataUri(value: string): boolean {
   return value.startsWith('data:')
 }
 
+/** Apenas imagens raster (PNG/JPEG/GIF/WebP) — SVG pode conter script. */
+export function isSafeImageDataUri(value: string): boolean {
+  return /^data:image\/(png|jpeg|gif|webp);base64,/.test(value)
+}
+
 export function getMimeType(dataUri: string): string {
   const match = dataUri.match(/^data:(.*?);/)
   return match?.[1] ?? ''

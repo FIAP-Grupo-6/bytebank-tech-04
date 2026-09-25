@@ -1,0 +1,17 @@
+{
+  "//": "Usado só pelo dependency-cruiser para resolver os aliases da zona host.",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "jsx": "preserve",
+    "allowJs": true,
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["apps/host/src/*"],
+      "@bytebank/domain": ["packages/domain/src"],
+      "@bytebank/infrastructure": ["packages/infrastructure/src"],
+      "@bytebank/infrastructure/next": ["packages/infrastructure/src/next"],
+      "@bytebank/ui": ["packages/ui/src"]
+    }
+  },
+  "files": ["../apps/host/next-env.d.ts"]
+}

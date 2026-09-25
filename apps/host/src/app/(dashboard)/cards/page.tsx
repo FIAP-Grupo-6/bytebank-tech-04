@@ -1,23 +1,15 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { getAccount } from '@bytebank/api-client'
 import { CreditCard } from 'lucide-react'
-import type { Card } from '@bytebank/types'
+import type { Card } from '@bytebank/domain'
+import { requireSession } from '@/server/session'
+import { makeUseCases } from '@/server/container'
 import { CardItem } from './CardItem'
 
+export const dynamic = 'force-dynamic'
+
 export default async function CardsPage() {
-  const session = await getServerSession(authOptions)
-  const token = session?.accessToken || ''
-
-  let cards: Card[] = []
-
-  try {
-    const response = await getAccount(token)
-    cards = response.result.cards
-  } catch {
-    cards = []
-  }
-
+  const session = await requireSession()
+  // Mesmo dado do dashboard (GET /account) → servido pelo cache do servidor.
+  const cards: Card[] = await makeUseCases(session).listCards.execute().catch(() => [])
   const totalCards = cards.length
 
   return (
@@ -25,7 +17,7 @@ export default async function CardsPage() {
       <div>
         <h1 className="text-xl font-semibold text-foreground">Meus cartões</h1>
         <p className="text-sm text-muted-foreground">
-          {totalCards} cartão{totalCards !== 1 ? 'ões' : ''} vinculado{totalCards !== 1 ? 's' : ''} à sua conta
+          {totalCards} {totalCards === 1 ? 'cartão vinculado' : 'cartões vinculados'} à sua conta
         </p>
       </div>
 

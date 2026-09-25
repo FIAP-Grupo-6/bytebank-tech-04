@@ -1,11 +1,14 @@
 'use client'
 
+import { startTransition, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { setFilters, resetFilters } from '@/store/slices/transactionsSlice'
-import { selectFilteredCount } from '@/store/selectors'
+import { setFilters, resetFilters } from '@/store/slices/filtersSlice'
+import { selectFilteredCount, selectFilters } from '@/store/selectors'
 import { Card, CardContent, CardHeader, Input, Select, SelectItem, DatePicker, Combobox } from '@bytebank/ui'
-import { CREDIT_CATEGORIES, DEBIT_CATEGORIES } from '@/lib/categories'
+import { CREDIT_CATEGORIES, DEBIT_CATEGORIES } from '@bytebank/domain'
 import type { ComboboxOption } from '@bytebank/ui'
+import { createSearchPipeline } from '@/presentation/reactive/search-pipeline'
+import { useSubjectCallback } from '@/presentation/reactive/hooks'
 
 const ALL_CATEGORY_OPTIONS: ComboboxOption[] = Array.from(
   new Map(
@@ -24,8 +27,24 @@ function getCategoryOptions(type: string | undefined): ComboboxOption[] {
 
 export function TransactionFilters() {
   const dispatch = useAppDispatch()
-  const filters = useAppSelector((s) => s.transactions.filters)
+  const filters = useAppSelector(selectFilters)
   const total = useAppSelector(selectFilteredCount)
+
+  // O input responde a cada tecla (estado local); o filtro global só é
+  // atualizado pelo stream reativo (debounce + distinct). startTransition
+  // marca o refiltro/re-render da lista como não urgente → digitação fluida.
+  const [searchText, setSearchText] = useState(filters.search ?? '')
+  const pushSearch = useSubjectCallback(createSearchPipeline, (search: string) =>
+    startTransition(() => {
+      dispatch(setFilters({ search }))
+    })
+  )
+
+  const clearAll = () => {
+    setSearchText('')
+    pushSearch('')
+    dispatch(resetFilters())
+  }
 
   const categoryOptions = getCategoryOptions(filters.type)
 
@@ -36,7 +55,7 @@ export function TransactionFilters() {
           {total} transaç{total !== 1 ? 'ões' : 'ão'} encontrada{total !== 1 ? 's' : ''}
         </span>
         <button
-          onClick={() => dispatch(resetFilters())}
+          onClick={clearAll}
           className="text-xs text-primary hover:underline"
           aria-label="Limpar todos os filtros"
         >
@@ -49,8 +68,11 @@ export function TransactionFilters() {
           type="text"
           label="Buscar"
           placeholder="Buscar transação..."
-          value={filters.search ?? ''}
-          onChange={(e) => dispatch(setFilters({ search: e.target.value }))}
+          value={searchText}
+          onChange={(e) => {
+            setSearchText(e.target.value)
+            pushSearch(e.target.value)
+          }}
         />
 
         <Select

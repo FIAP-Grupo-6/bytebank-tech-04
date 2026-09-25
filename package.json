@@ -1,5 +1,5 @@
 {
-  "name": "bytebank-fase2",
+  "name": "bytebank",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -16,10 +16,15 @@
     "dev:full": "concurrently -n API,APPS -c blue,green \"npm run dev:api\" \"npm run dev\"",
     "dev:mock": "node scripts/mock-api/server.js",
     "dev:demo": "concurrently -n MOCK,APPS -c blue,green \"npm run dev:mock\" \"npm run dev\"",
-    "storybook": "npm run storybook --workspace=packages/ui"
+    "storybook": "npm run storybook --workspace=packages/ui",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint:arch": "depcruise apps/host/src packages/domain/src packages/infrastructure/src packages/ui/src --config tooling/.dependency-cruiser.cjs --ts-config tooling/tsconfig.arch-host.json && depcruise apps/transactions/src packages/domain/src packages/infrastructure/src packages/ui/src --config tooling/.dependency-cruiser.cjs --ts-config tooling/tsconfig.arch-transactions.json",
+    "verify": "npm run lint:arch && npm run typecheck && npm run test && npm run build"
   },
   "devDependencies": {
     "concurrently": "^9.2.3",
+    "dependency-cruiser": "^16.10.4",
     "prettier": "^3.4.2",
     "turbo": "2.3.3"
   },

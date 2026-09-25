@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@bytebank/ui'
-import type { DashboardSummary } from '@bytebank/types'
+import type { DashboardSummary } from '@bytebank/domain'
 import { formatBRL } from '@/lib/format'
 
 export function DashboardCards({ summary }: { summary: DashboardSummary }) {

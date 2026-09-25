@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type React from 'react'
 import { X, Check, Target, TrendingDown } from 'lucide-react'
 import { cn, Modal } from '@bytebank/ui'
-import type { DashboardSettings } from './types'
+import type { DashboardSettings } from '@bytebank/domain'
 
 interface ToggleProps {
   checked: boolean

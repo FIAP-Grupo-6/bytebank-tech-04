@@ -2,8 +2,8 @@ import 'next-auth'
 import 'next-auth/jwt'
 
 declare module 'next-auth' {
+  /** Sessão PÚBLICA (exposta ao browser) — propositalmente sem accessToken. */
   interface Session {
-    accessToken?: string
     user: {
       id?: string
       name?: string | null
@@ -19,8 +19,10 @@ declare module 'next-auth' {
 }
 
 declare module 'next-auth/jwt' {
+  /** Conteúdo do cookie cifrado — só o servidor lê. */
   interface JWT {
     accessToken?: string
+    apiTokenExp?: number
     id?: string
   }
 }

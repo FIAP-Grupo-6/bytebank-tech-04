@@ -1,24 +1,33 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Settings } from 'lucide-react'
+import { Alert } from '@bytebank/ui'
+import type { DashboardSettings } from '@bytebank/domain'
 import { useDashboardSettings } from './useDashboardSettings'
 import { SavingsGoalCard } from './SavingsGoalCard'
 import { SpendingAlertCard } from './SpendingAlertCard'
-import { CustomizerModal } from './CustomizerModal'
-import type { Transaction } from '@bytebank/types'
+
+/**
+ * Lazy loading + pré-carregamento por intenção: o modal de personalização
+ * não entra no bundle inicial. O chunk começa a baixar no hover/foco do
+ * botão, então no clique ele normalmente já está em cache.
+ */
+const loadCustomizer = () => import('./CustomizerModal').then((m) => m.CustomizerModal)
+const CustomizerModal = dynamic(loadCustomizer, { ssr: false })
+const preloadCustomizer = () => void loadCustomizer()
 
 interface DashboardWidgetsProps {
   balance: number
-  transactions: Transaction[]
+  currentMonthDebit: number
+  initialSettings: DashboardSettings
 }
 
-export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProps) {
-  const { settings, save, hydrated } = useDashboardSettings()
+export function DashboardWidgets({ balance, currentMonthDebit, initialSettings }: DashboardWidgetsProps) {
+  const { settings, save, saveFailed } = useDashboardSettings(initialSettings)
   const [customizerOpen, setCustomizerOpen] = useState(false)
   const [focusWidget, setFocusWidget] = useState<'savingsGoal' | 'spendingAlert' | null>(null)
-
-  if (!hydrated) return null
 
   const anyEnabled = settings.savingsGoal.enabled || settings.spendingAlert.enabled
 
@@ -26,6 +35,8 @@ export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProp
     setFocusWidget(widget ?? null)
     setCustomizerOpen(true)
   }
+
+  const intentHandlers = { onMouseEnter: preloadCustomizer, onFocus: preloadCustomizer, onTouchStart: preloadCustomizer }
 
   return (
     <>
@@ -38,6 +49,7 @@ export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProp
         </div>
         <button
           onClick={() => openCustomizer()}
+          {...intentHandlers}
           aria-label="Personalizar dashboard"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted border border-border transition-colors"
         >
@@ -46,18 +58,16 @@ export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProp
         </button>
       </div>
 
+      {saveFailed && <Alert tone="error">Não foi possível salvar suas preferências. As alterações foram desfeitas.</Alert>}
+
       {anyEnabled ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {settings.savingsGoal.enabled && (
-            <SavingsGoalCard
-              balance={balance}
-              config={settings.savingsGoal}
-              onEdit={() => openCustomizer('savingsGoal')}
-            />
+            <SavingsGoalCard balance={balance} config={settings.savingsGoal} onEdit={() => openCustomizer('savingsGoal')} />
           )}
           {settings.spendingAlert.enabled && (
             <SpendingAlertCard
-              transactions={transactions}
+              spent={currentMonthDebit}
               config={settings.spendingAlert}
               onEdit={() => openCustomizer('spendingAlert')}
             />
@@ -66,6 +76,7 @@ export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProp
       ) : (
         <button
           onClick={() => openCustomizer()}
+          {...intentHandlers}
           className="w-full p-6 rounded-lg border border-dashed border-border text-center hover:border-ring hover:bg-muted/30 transition-colors group"
         >
           <div className="flex flex-col items-center gap-2">
@@ -75,9 +86,7 @@ export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProp
             <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
               Adicionar widgets
             </p>
-            <p className="text-xs text-muted-foreground/60">
-              Metas de economia, alertas de gastos e mais
-            </p>
+            <p className="text-xs text-muted-foreground/60">Metas de economia, alertas de gastos e mais</p>
           </div>
         </button>
       )}
@@ -86,7 +95,10 @@ export function DashboardWidgets({ balance, transactions }: DashboardWidgetsProp
         <CustomizerModal
           settings={settings}
           onSave={save}
-          onClose={() => { setCustomizerOpen(false); setFocusWidget(null) }}
+          onClose={() => {
+            setCustomizerOpen(false)
+            setFocusWidget(null)
+          }}
           focusWidget={focusWidget}
         />
       )}

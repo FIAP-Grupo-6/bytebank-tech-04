@@ -6,7 +6,7 @@ export const dynamic = 'force-static'
 
 export const metadata: Metadata = {
   title: 'Sobre | ByteBank',
-  description: 'Conheça o ByteBank — projeto desenvolvido para o Tech Challenge Fase 2 da FIAP.',
+  description: 'Conheça o ByteBank — projeto desenvolvido para o Tech Challenge Fase 4 da FIAP.',
 }
 
 interface ArchitectureItem {
@@ -16,24 +16,33 @@ interface ArchitectureItem {
 
 const architecture: ReadonlyArray<ArchitectureItem> = [
   {
-    title: 'Monorepo com Turborepo',
+    title: 'Clean Architecture',
     description:
-      'Múltiplas aplicações e pacotes compartilhados num único repositório, com builds incrementais.',
+      'Domínio puro (entidades, regras e casos de uso), infraestrutura isolada em adapters e apresentação sem acesso à API. Regras verificadas automaticamente no CI.',
+  },
+  {
+    title: 'BFF e segurança',
+    description:
+      'O token da API nunca chega ao browser: route handlers fazem as chamadas no servidor. CSP, HSTS, proteção CSRF e dados sensíveis cifrados com AES-256-GCM.',
+  },
+  {
+    title: 'Estado e cache',
+    description:
+      'RTK Query com atualizações otimistas, hidratação a partir do SSR, ETag no BFF e cache de dados no servidor invalidado por evento entre as zonas.',
+  },
+  {
+    title: 'Performance e reatividade',
+    description:
+      'Lazy loading de gráficos, modais e calendário, pré-carregamento por intenção, Speculation Rules entre zonas e busca reativa com RxJS.',
   },
   {
     title: 'Multi-Zones (microfrontends)',
     description:
-      'Zona host e zona transactions são Next.js apps independentes. O host faz proxy transparente via rewrites.',
-  },
-  {
-    title: 'Next.js App Router',
-    description:
-      'Server Components, renderização híbrida (SSR e SSG) utilizando o App Router.',
+      'Zona host e zona transactions são apps Next.js independentes. O host faz proxy transparente via rewrites.',
   },
   {
     title: 'Design System compartilhado',
-    description:
-      'Pacote @bytebank/ui com componentes reutilizáveis (Logo, Modal, AppSidebar, Button…) consumido pelas duas zonas.',
+    description: 'Pacote @bytebank/ui com componentes reutilizáveis consumido pelas duas zonas.',
   },
 ]
 
@@ -47,6 +56,10 @@ const stack: string[] = [
   'Zod',
   'Turborepo',
   'Recharts',
+  'RTK Query',
+  'RxJS',
+  'Vitest',
+  'dependency-cruiser',
 ]
 
 export default function SobrePage() {
@@ -62,7 +75,7 @@ export default function SobrePage() {
         <section className="space-y-4">
           <h1 className="text-3xl font-bold text-foreground">Sobre o ByteBank</h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
-            Plataforma de gerenciamento financeiro desenvolvida como Tech Challenge da Fase 2 da Pós Tech Frontend Engineering da FIAP.
+            Plataforma de gerenciamento financeiro desenvolvida como Tech Challenge da Fase 4 da Pós Tech Frontend Engineering da FIAP.
           </p>
         </section>
 
@@ -105,7 +118,7 @@ export default function SobrePage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-foreground">Equipe</h2>
           <p className="text-muted-foreground">
-            Desenvolvido pelo Grupo 6 — FIAP · Pós-graduação em Desenvolvimento Full Stack · 2025.
+            Desenvolvido pelo Grupo 6 — FIAP · Pós Tech Front-End Engineering.
           </p>
         </section>
       </main>

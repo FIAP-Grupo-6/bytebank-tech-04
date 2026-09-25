@@ -6,14 +6,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { createUser } from '@bytebank/api-client'
+import { registerAction } from './actions'
 import { Button, Input, Alert } from '@bytebank/ui'
 
 const schema = z
   .object({
     username: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
     email: z.string().email('Email inválido'),
-    password: z.string().min(4, 'Senha deve ter ao menos 4 caracteres'),
+    password: z
+      .string()
+      .min(8, 'Senha deve ter ao menos 8 caracteres')
+      .regex(/[A-Za-z]/, 'Senha deve conter letras')
+      .regex(/\d/, 'Senha deve conter números'),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -36,11 +40,15 @@ export function RegisterForm() {
   const onSubmit = async (data: FormData) => {
     setServerError(null)
     try {
-      await createUser({
+      const result = await registerAction({
         username: data.username,
         email: data.email,
         password: data.password,
       })
+      if (!result.ok) {
+        setServerError(result.message)
+        return
+      }
 
       await signIn('credentials', {
         email: data.email,

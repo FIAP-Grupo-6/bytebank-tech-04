@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 FROM base AS prepare
 RUN apk add --no-cache libc6-compat
@@ -16,8 +16,6 @@ RUN npm ci
 
 COPY --from=prepare /app/out/full/ .
 
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npx turbo run build --filter=transactions

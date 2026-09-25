@@ -1,7 +1,7 @@
 'use client'
 
 import { LogOut, LucideIcon, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ElementType } from 'react'
 import clsx from 'clsx'
 import { Logo } from './Logo'
 
@@ -10,16 +10,26 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   active?: boolean
+  /**
+   * `true` quando o destino pertence a OUTRA zona (outro app Next.js):
+   * usa <a> nativo (navegação completa). Rotas da mesma zona usam o
+   * `linkComponent` (ex.: next/link), ganhando navegação client-side e prefetch.
+   */
+  external?: boolean
 }
 
 export interface AppSidebarProps {
   navItems: NavItem[]
   footerItems?: NavItem[]
   onSignOut: () => void
+  /** Componente de link da zona atual (ex.: next/link). Padrão: <a>. */
+  linkComponent?: ElementType
 }
 
-export function AppSidebar({ navItems, footerItems, onSignOut }: AppSidebarProps) {
+export function AppSidebar({ navItems, footerItems, onSignOut, linkComponent }: AppSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const linkFor = (item: NavItem): ElementType =>
+    item.external || !linkComponent ? 'a' : linkComponent
 
   return (
     <>
@@ -65,8 +75,9 @@ export function AppSidebar({ navItems, footerItems, onSignOut }: AppSidebarProps
         <nav aria-label="Navegação principal" className="flex-1 px-2 space-y-1 pt-2 lg:pt-0">
           {navItems.map((item) => {
             const Icon = item.icon
+            const ItemLink = linkFor(item)
             return (
-              <a
+              <ItemLink
                 key={item.href}
                 href={item.href}
                 aria-current={item.active ? 'page' : undefined}
@@ -82,7 +93,7 @@ export function AppSidebar({ navItems, footerItems, onSignOut }: AppSidebarProps
               >
                 <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span className="md:hidden lg:block">{item.label}</span>
-              </a>
+              </ItemLink>
             )
           })}
         </nav>
@@ -91,8 +102,9 @@ export function AppSidebar({ navItems, footerItems, onSignOut }: AppSidebarProps
         <div className="px-2 py-4 border-t border-border/30 space-y-1">
           {footerItems?.map((item) => {
             const Icon = item.icon
+            const ItemLink = linkFor(item)
             return (
-              <a
+              <ItemLink
                 key={item.href}
                 href={item.href}
                 aria-current={item.active ? 'page' : undefined}
@@ -108,7 +120,7 @@ export function AppSidebar({ navItems, footerItems, onSignOut }: AppSidebarProps
               >
                 <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span className="md:hidden lg:block">{item.label}</span>
-              </a>
+              </ItemLink>
             )
           })}
           <button

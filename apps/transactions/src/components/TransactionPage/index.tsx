@@ -1,37 +1,47 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Provider } from 'react-redux'
-import { Plus } from 'lucide-react'
+import { Plus, WifiOff } from 'lucide-react'
 import { Button, Alert } from '@bytebank/ui'
-import { store } from '@/store'
-import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { fetchTransactions } from '@/store/slices/transactionsSlice'
+import type { Transaction } from '@bytebank/domain'
+import { bindBrowserListeners, makeStore } from '@/store'
 import { TransactionFilters } from '@/components/TransactionFilters'
 import { TransactionList } from '@/components/TransactionList'
-import { TransactionModal } from '@/components/TransactionModal'
-import type { Transaction } from '@bytebank/types'
+import { connectivity$ } from '@/presentation/reactive/connectivity'
+import { useObservableValue } from '@/presentation/reactive/hooks'
 
-interface Props {
-  accountId: string
-  token: string
+/**
+ * ─── LAZY LOADING + PRÉ-CARREGAMENTO ────────────────────────────────────────
+ * O modal (react-hook-form, zod, combobox, upload) só é necessário quando o
+ * usuário vai criar/editar. Ele sai do bundle inicial e é pré-carregado:
+ *  - no hover/foco do botão "Nova transação" (intenção explícita);
+ *  - em idle, logo após a página ficar interativa (requestIdleCallback),
+ *    para que o botão "Editar" de qualquer linha também abra sem espera.
+ */
+const loadModal = () => import('@/components/TransactionModal').then((m) => m.TransactionModal)
+const TransactionModal = dynamic(loadModal, { ssr: false })
+const preloadModal = () => void loadModal()
+
+function usePreloadWhenIdle(preload: () => void) {
+  useEffect(() => {
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(preload, { timeout: 3000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = setTimeout(preload, 1500)
+    return () => clearTimeout(id)
+  }, [preload])
 }
 
-function TransactionPageContent({ accountId, token }: Props) {
+function TransactionPageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
-  const dispatch = useAppDispatch()
-  const status = useAppSelector((s) => s.transactions.status)
-  const error = useAppSelector((s) => s.transactions.error)
-  // Evita double fetch do React 18 Strict Mode (monta/desmonta/remonta em dev)
-  const fetchedRef = useRef(false)
+  // Programação reativa: estado de conexão como stream (online/offline)
+  const isOnline = useObservableValue(connectivity$, true)
 
-  useEffect(() => {
-    if (!accountId || !token) return
-    if (fetchedRef.current) return
-    fetchedRef.current = true
-    dispatch(fetchTransactions({ accountId, token }))
-  }, [accountId, token, dispatch])
+  usePreloadWhenIdle(preloadModal)
 
   const openCreate = () => {
     setEditingTransaction(null)
@@ -53,13 +63,13 @@ function TransactionPageContent({ accountId, token }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Transações</h1>
-          <p className="text-sm text-muted-foreground">
-            Histórico completo da sua conta
-          </p>
+          <p className="text-sm text-muted-foreground">Histórico completo da sua conta</p>
         </div>
         <Button
           onClick={openCreate}
-          disabled={!accountId || status === 'loading'}
+          onMouseEnter={preloadModal}
+          onFocus={preloadModal}
+          disabled={!isOnline}
           aria-label="Abrir formulário de nova transação"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
@@ -67,27 +77,43 @@ function TransactionPageContent({ accountId, token }: Props) {
         </Button>
       </div>
 
-      {error && <Alert tone="error">{error}</Alert>}
+      {!isOnline && (
+        <Alert tone="info">
+          <span className="inline-flex items-center gap-2">
+            <WifiOff className="w-4 h-4" aria-hidden="true" />
+            Você está offline. Exibindo os dados em cache — novas transações ficam disponíveis ao reconectar.
+          </span>
+        </Alert>
+      )}
 
       <TransactionFilters />
       <TransactionList onEdit={openEdit} />
 
-      <TransactionModal
-        key={editingTransaction?.id ?? 'create'}
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        accountId={accountId}
-        token={token}
-        editTransaction={editingTransaction}
-      />
+      {isModalOpen && (
+        <TransactionModal
+          key={editingTransaction?.id ?? 'create'}
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          editTransaction={editingTransaction}
+        />
+      )}
     </div>
   )
 }
 
-export function TransactionPage(props: Props) {
+interface TransactionPageProps {
+  /** Extrato buscado no servidor (SSR) — hidrata o cache do RTK Query */
+  initialTransactions: Transaction[]
+}
+
+export function TransactionPage({ initialTransactions }: TransactionPageProps) {
+  // Uma store por árvore (nunca singleton de módulo — ver store/index.ts)
+  const [store] = useState(() => makeStore(initialTransactions))
+  useEffect(() => bindBrowserListeners(store), [store])
+
   return (
     <Provider store={store}>
-      <TransactionPageContent {...props} />
+      <TransactionPageContent />
     </Provider>
   )
 }

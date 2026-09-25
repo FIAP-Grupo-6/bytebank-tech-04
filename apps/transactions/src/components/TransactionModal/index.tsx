@@ -5,14 +5,18 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, Upload, ImageIcon } from 'lucide-react'
-import { createTransaction, updateTransaction } from '@bytebank/api-client'
-import { useAppDispatch } from '@/store/hooks'
-import { addTransaction, updateTransactionAction, fetchTransactions } from '@/store/slices/transactionsSlice'
 import { cn, Modal, Combobox } from '@bytebank/ui'
-import type { Transaction } from '@bytebank/types'
+import {
+  getCategoriesByType,
+  getSubcategories,
+  normalizeTransactionType,
+  MAX_ATTACHMENT_BYTES,
+  type Transaction,
+  type TransactionInput,
+} from '@bytebank/domain'
+import { useCreateTransactionMutation, useUpdateTransactionMutation, errorMessage, type ApiErrorBody } from '@/store/api/transactionsApi'
 import { formatDecimal } from '@/lib/format'
-import { isDataUri, formatFileSize, fileToBase64 } from '@/lib/file'
-import { getCategoriesByType, getSubcategories } from '@/lib/categories'
+import { isSafeImageDataUri, formatFileSize, fileToBase64 } from '@/lib/file'
 
 const schema = z.object({
   type: z.enum(['Credit', 'Debit'], { required_error: 'Selecione o tipo' }),
@@ -30,8 +34,6 @@ type FormData = z.infer<typeof schema>
 interface TransactionModalProps {
   isOpen: boolean
   onClose: () => void
-  accountId: string
-  token: string
   editTransaction?: Transaction | null
 }
 
@@ -43,41 +45,13 @@ const inputClass =
 
 const labelClass = 'text-sm font-medium text-foreground/80 block mb-1.5'
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+const MAX_FILE_SIZE = MAX_ATTACHMENT_BYTES // regra do domínio (5 MB)
 const CREATE_DEFAULT_VALUES: FormData = {
   type: 'Credit',
   value: undefined as unknown as number,
   from: '',
   to: '',
   anexo: '',
-}
-
-function normalizeTransactionType(type: unknown): 'Credit' | 'Debit' {
-  const normalized = String(type ?? '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-
-  if (normalized === 'credit' || normalized === 'credito' || normalized === 'entrada') {
-    return 'Credit'
-  }
-
-  return 'Debit'
-}
-
-function getSubmitErrorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    const normalizedMessage = err.message.trim().toLowerCase()
-
-    if (normalizedMessage.includes('failed to fetch')) {
-      return 'Erro ao salvar transação.';
-    }
-
-    return err.message
-  }
-
-  return 'Erro ao salvar transação';
 }
 
 // ─── CurrencyInput ───────────────────────────────────────────────────────────
@@ -129,12 +103,11 @@ function CurrencyInput({ value, onChange, inputRef, hasError }: CurrencyInputPro
 export function TransactionModal({
   isOpen,
   onClose,
-  accountId,
-  token,
   editTransaction,
 }: TransactionModalProps) {
-  const dispatch = useAppDispatch()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [createTransaction, createState] = useCreateTransactionMutation()
+  const [updateTransaction, updateState] = useUpdateTransactionMutation()
+  const isSubmitting = createState.isLoading || updateState.isLoading
   const [serverError, setServerError] = useState<string | null>(null)
   const [fileInfo, setFileInfo] = useState<{ name: string; size: number } | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
@@ -150,6 +123,7 @@ export function TransactionModal({
     watch,
     control,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -185,7 +159,7 @@ export function TransactionModal({
           to: editTransaction.to ?? '',
           anexo: editTransaction.anexo ?? '',
         })
-        if (editTransaction.anexo && isDataUri(editTransaction.anexo)) {
+        if (editTransaction.anexo && isSafeImageDataUri(editTransaction.anexo)) {
           setFileInfo({ name: 'Imagem existente', size: 0 })
           setPreviewSrc(editTransaction.anexo)
         } else {
@@ -232,29 +206,29 @@ export function TransactionModal({
   }
 
   const onSubmit = async (data: FormData) => {
-    setIsSubmitting(true)
     setServerError(null)
+    // accountId NÃO é enviado: o BFF resolve a conta a partir da sessão.
+    const input: TransactionInput = {
+      type: data.type,
+      value: data.value,
+      from: data.from,
+      to: data.to,
+      anexo: data.anexo,
+    }
     try {
       if (isEditing && editTransaction) {
-        const updated = await updateTransaction(
-          editTransaction.id,
-          { accountId, type: data.type, value: data.value, from: data.from, to: data.to, anexo: data.anexo },
-          token
-        )
-        dispatch(updateTransactionAction(updated))
+        await updateTransaction({ id: editTransaction.id, input }).unwrap()
       } else {
-        const transaction = await createTransaction(
-          { accountId, type: data.type, value: data.value, from: data.from, to: data.to, anexo: data.anexo },
-          token
-        )
-        dispatch(addTransaction(transaction))
+        await createTransaction(input).unwrap()
       }
-      dispatch(fetchTransactions({ accountId, token }))
       onClose()
     } catch (err: unknown) {
-      setServerError(getSubmitErrorMessage(err))
-    } finally {
-      setIsSubmitting(false)
+      // 422 do BFF: erros de regra de negócio vindos do domínio, por campo
+      const fieldErrors = (err as { data?: ApiErrorBody })?.data?.errors
+      fieldErrors?.forEach(({ field, message }) => {
+        if (field in schema.shape) setError(field as keyof FormData, { message })
+      })
+      setServerError(errorMessage(err, 'Erro ao salvar transação'))
     }
   }
 

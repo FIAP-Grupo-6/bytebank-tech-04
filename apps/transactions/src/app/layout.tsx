@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import './globals.css'
-import { Providers } from './providers'
 import { Sidebar } from '@/components/Sidebar'
-import { getSessionFromCookie } from '@/lib/session'
+import { getServerSessionData } from '@bytebank/infrastructure/next'
 
 // Fonte self-hosted (variável, subset latin): elimina a requisição a
 // fonts.googleapis.com, permite CSP font-src 'self' e é pré-carregada pelo Next.
@@ -28,7 +27,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getSessionFromCookie()
+  const session = await getServerSessionData()
 
   if (session === null) {
     return (
@@ -59,14 +58,12 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR" className={`${plusJakartaSans.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <Providers>
-          <div className="flex flex-col md:flex-row h-screen bg-background overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto min-h-0">
-              {children}
-            </main>
-          </div>
-        </Providers>
+        <div className="flex flex-col md:flex-row h-screen bg-background overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto min-h-0">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   )

@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowDownLeft, ArrowUpRight, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@bytebank/ui'
-import type { Transaction } from '@bytebank/types'
+import type { Transaction } from '@bytebank/domain'
 import { formatBRL } from '@/lib/format'
 
 export function RecentTransactions({ transactions }: { transactions: Transaction[] }) {

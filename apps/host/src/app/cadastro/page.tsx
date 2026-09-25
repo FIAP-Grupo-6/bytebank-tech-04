@@ -1,6 +1,6 @@
 import { RegisterForm } from './RegisterForm'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions } from '@/server/auth'
 import { redirect } from 'next/navigation'
 
 export default async function CadastroPage() {

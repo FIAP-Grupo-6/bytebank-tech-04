@@ -26,11 +26,14 @@
       "@/*": [
         "./src/*"
       ],
-      "@bytebank/types": [
-        "../../packages/types/src"
+      "@bytebank/domain": [
+        "../../packages/domain/src"
       ],
-      "@bytebank/api-client": [
-        "../../packages/api-client/src"
+      "@bytebank/infrastructure": [
+        "../../packages/infrastructure/src"
+      ],
+      "@bytebank/infrastructure/next": [
+        "../../packages/infrastructure/src/next"
       ],
       "@bytebank/ui": [
         "../../packages/ui/src"

@@ -1,0 +1,17 @@
+{
+  "//": "Usado só pelo dependency-cruiser para resolver os aliases da zona transactions.",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "jsx": "preserve",
+    "allowJs": true,
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["apps/transactions/src/*"],
+      "@bytebank/domain": ["packages/domain/src"],
+      "@bytebank/infrastructure": ["packages/infrastructure/src"],
+      "@bytebank/infrastructure/next": ["packages/infrastructure/src/next"],
+      "@bytebank/ui": ["packages/ui/src"]
+    }
+  },
+  "files": ["../apps/transactions/next-env.d.ts"]
+}

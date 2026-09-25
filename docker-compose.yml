@@ -26,8 +26,6 @@ services:
     build:
       context: .
       dockerfile: apps/transactions/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:3000
     ports:
       - "3001:3001"
     environment:
@@ -35,6 +33,7 @@ services:
       - NODE_ENV=production
       - NEXTAUTH_SECRET=bytebank-dev-secret-troque-em-producao
       - API_URL=http://api:3000
+      - HOST_URL=http://host:3002
     depends_on:
       - api
     networks:
@@ -46,7 +45,6 @@ services:
       dockerfile: apps/host/Dockerfile
       args:
         TRANSACTIONS_URL: http://transactions:3001
-        NEXT_PUBLIC_API_URL: http://localhost:3000
     ports:
       - "3002:3002"
     environment:

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXTAUTH_SECRET: ci-secret-apenas-para-build-0123456789
+      TRANSACTIONS_URL: http://localhost:3001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Regras de arquitetura (Clean Architecture)
+        run: npm run lint:arch
+      - name: Tipos
+        run: npm run typecheck
+      - name: Testes (domínio, infraestrutura, reatividade)
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build

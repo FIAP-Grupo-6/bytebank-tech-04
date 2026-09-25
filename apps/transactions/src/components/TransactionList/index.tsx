@@ -18,16 +18,17 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { setPage, deleteTransactionAsync, refreshTransactions } from '@/store/slices/transactionsSlice'
+import { setPage } from '@/store/slices/filtersSlice'
+import { useDeleteTransactionMutation, useListTransactionsQuery, errorMessage } from '@/store/api/transactionsApi'
 import {
   selectPaginatedTransactions,
   selectTotalPages,
   selectCurrentPage,
 } from '@/store/selectors'
-import { Card, CardContent, Modal } from '@bytebank/ui'
-import type { Transaction } from '@bytebank/types'
+import { Alert, Card, CardContent, Modal } from '@bytebank/ui'
+import type { Transaction } from '@bytebank/domain'
 import { formatAbsoluteBRL, formatBRL } from '@/lib/format'
-import { isDataUri, getMimeType, getDownloadName } from '@/lib/file'
+import { isDataUri, isSafeImageDataUri, getMimeType, getDownloadName } from '@/lib/file'
 
 // ─── ConfirmDeleteDialog ─────────────────────────────────────────────────────
 
@@ -131,6 +132,8 @@ function FilePreviewModal({ dataUri, onClose }: { dataUri: string; onClose: () =
   )
 }
 
+const DELETE_KEY = 'delete-transaction'
+
 // ─── TransactionRow ──────────────────────────────────────────────────────────
 
 function TransactionRow({
@@ -142,29 +145,30 @@ function TransactionRow({
   onEdit: (t: Transaction) => void
   onPreview: (dataUri: string) => void
 }) {
-  const dispatch = useAppDispatch()
   const isCredit = transaction.type === 'Credit'
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  // fixedCacheKey compartilha o estado da mutation com a lista, que exibe o erro
+  // mesmo depois que esta linha foi removida (otimisticamente) e desmontada.
+  const [deleteTransaction, { isLoading: isDeleting }] = useDeleteTransactionMutation({ fixedCacheKey: DELETE_KEY })
+  // Linha otimista (ainda sem id definitivo do servidor)
+  const isPending = transaction.id.startsWith('temp-')
 
-  const hasImage = !!transaction.anexo && isDataUri(transaction.anexo)
+  // Só renderiza anexos que sejam imagens raster (nunca SVG/HTML) — defesa contra XSS armazenado
+  const hasImage = !!transaction.anexo && isSafeImageDataUri(transaction.anexo)
   const hasTextAnexo = !!transaction.anexo && !isDataUri(transaction.anexo)
 
   const handleDelete = async () => {
-    setIsDeleting(true)
-    const result = await dispatch(deleteTransactionAsync(transaction.id))
-    if (deleteTransactionAsync.fulfilled.match(result)) {
-      dispatch(refreshTransactions())
-    }
-    setIsDeleting(false)
+    // Remoção otimista: a linha some na hora; volta sozinha se o BFF/API falhar
     setShowDeleteDialog(false)
+    await deleteTransaction(transaction.id)
   }
 
   return (
     <>
       <div
         role="row"
-        className="flex items-center justify-between p-4 hover:bg-muted rounded-lg transition-colors group"
+        aria-busy={isPending || undefined}
+        className={`flex items-center justify-between p-4 hover:bg-muted rounded-lg transition-colors group ${isPending ? 'opacity-60' : ''}`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
@@ -225,6 +229,7 @@ function TransactionRow({
           <div className="flex items-center gap-1">
             <button
               onClick={() => onEdit(transaction)}
+              disabled={isPending}
               aria-label="Editar transação"
               title="Editar"
               className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -233,6 +238,7 @@ function TransactionRow({
             </button>
             <button
               onClick={() => setShowDeleteDialog(true)}
+              disabled={isPending}
               aria-label="Excluir transação"
               title="Excluir"
               className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -262,13 +268,28 @@ interface TransactionListProps {
 
 export function TransactionList({ onEdit }: TransactionListProps) {
   const dispatch = useAppDispatch()
+  // Assina o cache do RTK Query (já hidratado no SSR). isLoading só é true sem dado em cache.
+  const { isLoading, isError, error } = useListTransactionsQuery()
   const transactions = useAppSelector(selectPaginatedTransactions)
   const currentPage = useAppSelector(selectCurrentPage)
   const totalPages = useAppSelector(selectTotalPages)
-  const status = useAppSelector((s) => s.transactions.status)
   const [previewUri, setPreviewUri] = useState<string | null>(null)
+  const [, { error: deleteError, reset: resetDeleteError }] = useDeleteTransactionMutation({ fixedCacheKey: DELETE_KEY })
 
-  if (status === 'loading') {
+  const deleteAlert = deleteError ? (
+    <Alert tone="error">
+      {errorMessage(deleteError, 'Não foi possível excluir a transação')}. A transação foi restaurada.{' '}
+      <button className="underline" onClick={resetDeleteError}>
+        Fechar
+      </button>
+    </Alert>
+  ) : null
+
+  if (isError && transactions.length === 0) {
+    return <Alert tone="error">{errorMessage(error, 'Erro ao carregar transações')}</Alert>
+  }
+
+  if (isLoading) {
     return (
       <Card aria-busy="true" aria-label="Carregando transações">
         <CardContent className="p-6">
@@ -284,6 +305,8 @@ export function TransactionList({ onEdit }: TransactionListProps) {
 
   if (transactions.length === 0) {
     return (
+      <>
+      {deleteAlert}
       <Card role="status">
         <CardContent className="p-12 text-center">
           <p className="text-muted-foreground text-sm">Nenhuma transação encontrada.</p>
@@ -292,11 +315,13 @@ export function TransactionList({ onEdit }: TransactionListProps) {
           </p>
         </CardContent>
       </Card>
+      </>
     )
   }
 
   return (
     <>
+      {deleteAlert}
       <Card role="table" aria-label="Lista de transações">
         <CardContent className="p-0">
           <div className="divide-y divide-border px-2">

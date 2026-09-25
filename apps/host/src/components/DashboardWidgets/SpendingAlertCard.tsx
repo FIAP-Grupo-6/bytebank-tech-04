@@ -3,9 +3,8 @@
 import { TrendingDown, Settings } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@bytebank/ui'
 import { cn } from '@bytebank/ui'
-import { progressColor, currentMonthDebit } from './utils'
-import type { SpendingAlertConfig } from './types'
-import type { Transaction } from '@bytebank/types'
+import { evaluateSpending, type SpendingAlertConfig } from '@bytebank/domain'
+import { spendingColor } from './utils'
 import { formatBRL } from '@/lib/format'
 
 interface ProgressBarProps {
@@ -25,17 +24,17 @@ function ProgressBar({ pct, color }: ProgressBarProps) {
 }
 
 interface SpendingAlertCardProps {
-  transactions: Transaction[]
+  /** Gasto do mês corrente — calculado pelo domínio no servidor */
+  spent: number
   config: SpendingAlertConfig
   onEdit: () => void
 }
 
-export function SpendingAlertCard({ transactions, config, onEdit }: SpendingAlertCardProps) {
-  const spent = currentMonthDebit(transactions)
-  const pct = config.monthlyLimit > 0 ? (spent / config.monthlyLimit) * 100 : 0
-  const color = progressColor(pct, config.alertThreshold)
-  const isAlert = pct >= config.alertThreshold
-  const isOver = pct >= 100
+export function SpendingAlertCard({ spent, config, onEdit }: SpendingAlertCardProps) {
+  const { percent: pct, level } = evaluateSpending(spent, config)
+  const color = spendingColor(level)
+  const isAlert = level !== 'ok'
+  const isOver = level === 'exceeded'
 
   return (
     <Card className={cn('relative', isOver && 'border-destructive/40 bg-destructive/5')}>

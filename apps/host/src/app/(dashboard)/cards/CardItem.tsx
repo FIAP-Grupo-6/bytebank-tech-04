@@ -1,4 +1,4 @@
-import { Card } from "@bytebank/types";
+import type { Card } from "@bytebank/domain";
 import { Logo } from "@bytebank/ui";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";

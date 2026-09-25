@@ -1,43 +1,50 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import type { DashboardSettings } from './types'
+import { useEffect, useState } from 'react'
+import { normalizeDashboardSettings, type DashboardSettings } from '@bytebank/domain'
+import { settingsApi, useGetSettingsQuery, useSaveSettingsMutation } from '@/store/api/settingsApi'
+import { useAppStore } from '@/store/hooks'
 
-const STORAGE_KEY = 'bytebank_dashboard_settings'
+/** Chave usada na Fase 2, quando as preferências ficavam em texto puro no localStorage. */
+const LEGACY_STORAGE_KEY = 'bytebank_dashboard_settings'
 
-const defaults: DashboardSettings = {
-  savingsGoal: { enabled: false, description: 'Minha meta', targetAmount: 10000 },
-  spendingAlert: { enabled: false, monthlyLimit: 3000, alertThreshold: 80 },
-}
-
-function loadSettings(): DashboardSettings {
-  if (typeof window === 'undefined') return defaults
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaults
-    const parsed = JSON.parse(raw) as Partial<DashboardSettings>
-    return {
-      savingsGoal: { ...defaults.savingsGoal, ...parsed.savingsGoal },
-      spendingAlert: { ...defaults.spendingAlert, ...parsed.spendingAlert },
+/**
+ * Preferências do dashboard com estado de servidor (RTK Query).
+ *
+ * - Hidratação: o valor lido no servidor (cookie cifrado) é gravado no cache
+ *   do RTK Query no primeiro render → sem flash de "carregando" e sem uma
+ *   requisição extra logo após a hidratação.
+ * - Migração: se ainda existir o dado legado no localStorage, ele é enviado
+ *   uma única vez ao BFF (onde é cifrado) e APAGADO do browser.
+ */
+export function useDashboardSettings(initial: DashboardSettings) {
+  const store = useAppStore()
+  useState(() => {
+    if (!settingsApi.endpoints.getSettings.select()(store.getState()).data) {
+      // upsertQueryEntries é síncrono: o cache já está preenchido neste mesmo render
+      store.dispatch(settingsApi.util.upsertQueryEntries([{ endpointName: 'getSettings', arg: undefined, value: initial }]))
     }
-  } catch {
-    return defaults
-  }
-}
+    return null
+  })
 
-export function useDashboardSettings() {
-  const [settings, setSettings] = useState<DashboardSettings>(defaults)
-  const [hydrated, setHydrated] = useState(false)
+  const { data } = useGetSettingsQuery()
+  const [saveSettings, { isLoading: isSaving, isError }] = useSaveSettingsMutation()
 
   useEffect(() => {
-    setSettings(loadSettings())
-    setHydrated(true)
-  }, [])
+    try {
+      const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+      if (!legacy) return
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+      saveSettings(normalizeDashboardSettings(JSON.parse(legacy)))
+    } catch {
+      /* localStorage indisponível ou JSON inválido: nada a migrar */
+    }
+  }, [saveSettings])
 
-  const save = (updated: DashboardSettings) => {
-    setSettings(updated)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+  return {
+    settings: data ?? initial,
+    save: (updated: DashboardSettings) => saveSettings(updated),
+    isSaving,
+    saveFailed: isError,
   }
-
-  return { settings, save, hydrated }
 }
