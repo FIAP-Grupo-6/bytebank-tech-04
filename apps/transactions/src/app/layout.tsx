@@ -1,14 +1,18 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import { Providers } from './providers'
 import { Sidebar } from '@/components/Sidebar'
 import { getSessionFromCookie } from '@/lib/session'
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+// Fonte self-hosted (variável, subset latin): elimina a requisição a
+// fonts.googleapis.com, permite CSP font-src 'self' e é pré-carregada pelo Next.
+const plusJakartaSans = localFont({
+  src: './fonts/PlusJakartaSans-latin-var.woff2',
   variable: '--font-plus-jakarta-sans',
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
+  weight: '200 800',
+  display: 'swap',
+  preload: true,
 })
 
 export const metadata: Metadata = {
